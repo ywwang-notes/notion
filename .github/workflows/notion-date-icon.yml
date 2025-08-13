@@ -1,0 +1,86 @@
+name: Daily Notion Date Icon
+
+on:
+  schedule:
+    # 00:00 Asia/Taipei = 16:00 UTC 前一天
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # 用 GITHUB_TOKEN push 圖檔
+    steps:
+      - name: Checkout
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate today's icon (Asia/Taipei)
+        run: |
+          python scripts/generate_icon.py
+
+      - name: Commit image if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git add images/*.png
+            git commit -m "chore: add/update date icon"
+            git push
+          else
+            echo "No changes to commit."
+          fi
+
+      - name: Update Notion page icon
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          python - << 'PY'
+          import os, requests, glob, urllib.parse, time
+          repo   = os.environ["REPO"]
+          branch = os.environ["BRANCH"]
+          token  = os.environ["NOTION_TOKEN"]
+          page_id= os.environ["NOTION_PAGE_ID"]
+
+          # 取最新一張 images/YYYY-MM-DD.png
+          files = sorted(glob.glob("images/*.png"))
+          if not files:
+            raise SystemExit("No icon image found in images/")
+          latest = files[-1]
+          filename = latest.replace("\\","/").split("/")[-1]
+
+          # Raw URL（用 daily 檔名避免快取；再加 query 當緩存破壞）
+          raw = f"https://raw.githubusercontent.com/{repo}/{branch}/images/{urllib.parse.quote(filename)}?v={int(time.time())}"
+
+          url = f"https://api.notion.com/v1/pages/{page_id}"
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Notion-Version": "2022-06-28",
+              "Content-Type": "application/json",
+          }
+          payload = {
+            "icon": {
+              "type": "external",
+              "external": { "url": raw }
+            }
+          }
+          r = requests.patch(url, headers=headers, json=payload, timeout=30)
+          if r.status_code >= 300:
+            print(r.text)
+            r.raise_for_status()
+          else:
+            print("Notion icon updated:", raw)
+          PY
