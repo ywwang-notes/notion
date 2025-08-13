@@ -7,7 +7,8 @@ tz = timezone(timedelta(hours=8))
 now = datetime.now(tz)
 yyyy_mm_dd = now.strftime("%Y-%m-%d")
 day_num = now.strftime("%d")           # 01–31
-weekday_cn = "日一二三四五六"[int(now.strftime("%w"))]  # 0=日
+# weekday_cn = "日一二三四五六"[int(now.strftime("%w"))]  # 0=日
+weekday_en = now.strftime("%a")
 
 os.makedirs("images", exist_ok=True)
 out_path = f"images/{yyyy_mm_dd}.png"
@@ -48,7 +49,9 @@ w, h = draw.textbbox((0,0), day_text, font=font_day)[2:]
 draw.text(((W - w) / 2, header_h + (H - header_h - h) / 2 - 20), day_text, font=font_day, fill=(66,66,66,255))
 
 # 右下角星期
-wd_text = f"週{weekday_cn}"
+# wd_text = f"週{weekday_cn}"
+wd_text = weekday_en
+
 w, h = draw.textbbox((0,0), wd_text, font=font_wd)[2:]
 margin = 24
 draw.text((W - w - margin, H - h - margin), wd_text, font=font_wd, fill=(120,120,120,255))
