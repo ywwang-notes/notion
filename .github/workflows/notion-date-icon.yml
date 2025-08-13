@@ -13,7 +13,7 @@ jobs:
       contents: write   # 用 GITHUB_TOKEN push 圖檔
     steps:
       - name: Checkout
-      - uses: actions/checkout@v4
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
